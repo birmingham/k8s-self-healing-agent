@@ -16,8 +16,15 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: healer
+      annotations:
+        # Keep the cluster autoscaler (incl. Autopilot node scale-down) from
+        # evicting the agent mid-incident. Upgrades and drains still apply.
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
     spec:
       serviceAccountName: healer
+      # On SIGTERM the agent finishes its current loop (diagnosis + action +
+      # state write) before exiting; the LLM call alone can take ~60s.
+      terminationGracePeriodSeconds: 90
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
