@@ -1,0 +1,33 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfvars
+!*.tfvars.example
+backend.hcl
+# .terraform.lock.hcl is committed on purpose: it pins provider checksums.
+
+# Kubernetes credentials
+*kubeconfig*.yaml
+*.kubeconfig
+
+# Secrets
+*.pem
+*.key
+*-sa-key*.json
+.env
+.env.*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

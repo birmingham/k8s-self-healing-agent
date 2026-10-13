@@ -1,0 +1,60 @@
+# Scenario 3: pod-local state (an emptyDir cache) gets corrupted. The kubelet
+# restarts the container, but the emptyDir survives container restarts, so it
+# crash-loops forever. Only a NEW pod gets a fresh volume.
+# Expected: agent auto-deletes the pod (restart_pod); the replacement is healthy.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cache-worker
+  namespace: healer-demo
+  labels:
+    healer.birmingham.github.io/scenario: "3"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cache-worker
+  template:
+    metadata:
+      labels:
+        app: cache-worker
+        healer.birmingham.github.io/managed: "true"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: worker
+          image: busybox:1.36
+          command: ["sh", "-c"]
+          args:
+            - |
+              echo "cache-worker starting; local cache at /cache (emptyDir scratch, rebuilt from upstream when empty)"
+              check() {
+                if [ -f /cache/state.db.corrupt ]; then
+                  echo "ERROR: checksum mismatch in /cache/state.db (expected 9f2c1e7a, got 00000000)"
+                  echo "FATAL: refusing to start with a corrupt local cache"
+                  exit 1
+                fi
+              }
+              check
+              echo "cache warm; processing jobs"
+              while true; do check; sleep 5; done
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: cache
+              mountPath: /cache
+      volumes:
+        - name: cache
+          emptyDir: {}

@@ -1,0 +1,4 @@
+project_id = "your-project-id"
+region     = "us-west1"
+zone       = "us-west1-a"
+# rke2_version = "v1.33.x+rke2r1"  # pin for reproducibility; empty uses the stable channel

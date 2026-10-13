@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: healer
+  namespace: healer-system
+  labels:
+    app.kubernetes.io/name: healer
+spec:
+  replicas: 1                    # single writer; see README "Limits"
+  strategy:
+    type: Recreate               # never two agents acting at once during a rollout
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: healer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: healer
+    spec:
+      serviceAccountName: healer
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: healer
+          image: ghcr.io/birmingham/k8s-self-healing-agent
+          env:
+            - name: CLUSTER_NAME
+              value: unset       # set per overlay
+            - name: ANTHROPIC_MODEL
+              value: claude-sonnet-5-5
+            - name: HEALER_POLICY
+              value: /etc/healer/policy.yaml
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: healer-secrets
+                  key: ANTHROPIC_API_KEY
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: healer-secrets
+                  key: SLACK_WEBHOOK_URL
+                  optional: true
+          ports:
+            - name: health
+              containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: policy
+              mountPath: /etc/healer
+              readOnly: true
+      volumes:
+        - name: policy
+          configMap:
+            name: healer-policy

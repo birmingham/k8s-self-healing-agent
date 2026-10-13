@@ -1,0 +1,49 @@
+# Scenario 2: a worker's working set (~400 MiB) outgrew its 256Mi limit.
+# Expected: agent PROPOSES raising the limit (policy requires approval for
+# resource changes); a human approves; the agent applies 512Mi.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cruncher
+  namespace: healer-demo
+  labels:
+    healer.birmingham.github.io/scenario: "2"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cruncher
+  template:
+    metadata:
+      labels:
+        app: cruncher
+        healer.birmingham.github.io/managed: "true"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: cruncher
+          image: python:3.12-alpine
+          command: ["python", "-u", "-c"]
+          args:
+            - |
+              import time
+              print("cruncher v2.3.0 starting")
+              print("loading feature index into memory (expected working set ~400 MiB)")
+              index = b"x" * (400 * 1024 * 1024)   # touch every page so it counts against the limit
+              print("feature index loaded; serving batch jobs")
+              while True:
+                  time.sleep(30)
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]

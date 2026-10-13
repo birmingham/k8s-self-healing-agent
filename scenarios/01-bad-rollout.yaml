@@ -1,0 +1,50 @@
+# Scenario 1: a bad image tag ships. maxUnavailable: 0 keeps the old pods
+# serving, so users see nothing, but the rollout is stuck.
+# Expected: agent auto-rolls back to the previous revision.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: healer-demo
+  labels:
+    healer.birmingham.github.io/scenario: "1"
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+        healer.birmingham.github.io/managed: "true"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: web
+          image: nginxinc/nginx-unprivileged:1.27-alpine
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]

@@ -1,0 +1,23 @@
+# Guardrail policy. The model never sees this file and cannot change it.
+watchNamespaces: [healer-demo]
+loopIntervalSeconds: 30
+minIncidentAgeSeconds: 45        # let the kubelet's own restarts happen first
+pendingThresholdSeconds: 300
+cooldownMinutes: 5               # don't re-diagnose an incident just acted on
+escalationCooldownMinutes: 60    # don't re-page for the same stuck workload
+proposalTtlMinutes: 30
+minConfidence: 0.7               # below this, auto actions become proposals
+dryRun: false
+rateLimit:
+  windowMinutes: 60
+  maxActionsPerWorkload: 3       # circuit breaker
+actions:
+  restart_pod:
+    mode: auto
+    maxPods: 3
+  rollback_deployment:
+    mode: auto
+  increase_memory_limit:
+    mode: propose                # resource changes need a human
+    maxFactor: 2.0
+    ceiling: 1Gi

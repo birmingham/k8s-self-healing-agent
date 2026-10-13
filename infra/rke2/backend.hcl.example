@@ -1,0 +1,2 @@
+bucket = "your-tf-state-bucket"
+prefix = "k8s-self-healing-agent/rke2"
