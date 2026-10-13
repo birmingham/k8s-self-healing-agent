@@ -3,7 +3,7 @@
 # an IAP tunnel to the API server on localhost:16443. Leave it running.
 # Usage: scripts/connect-rke2.sh <project-id> [zone] [server-vm]
 set -euo pipefail
-PROJECT="${1:?usage: $0 <project-id> [zone] [server-vm]}"
+PROJECT="${1:?usage: $0 <project-id> [zone] [server-vm]  (project ID is empty: export PROJECT=...)}"
 ZONE="${2:-us-west1-a}"
 VM="${3:-healer-rke2-server-0}"
 PORT=16443
@@ -14,7 +14,9 @@ gcloud compute ssh "$VM" --zone "$ZONE" --project "$PROJECT" --tunnel-through-ia
   --command 'sudo cat /etc/rancher/rke2/rke2.yaml' > "$OUT.tmp"
 
 # Portable BRE (works with macOS sed): rename "default" -> healer-rke2, point at the tunnel.
-sed -e 's/^\( *name:\) default$/\1 healer-rke2/' \
+# [- ]* matters: the users entry is written "- name: default" (list item), the
+# cluster and context names are "  name: default" (indented).
+sed -e 's/^\([- ]*name:\) default$/\1 healer-rke2/' \
     -e 's/^\( *cluster:\) default$/\1 healer-rke2/' \
     -e 's/^\( *user:\) default$/\1 healer-rke2/' \
     -e 's/^current-context: default$/current-context: healer-rke2/' \
@@ -22,6 +24,12 @@ sed -e 's/^\( *name:\) default$/\1 healer-rke2/' \
     "$OUT.tmp" > "$OUT"
 rm -f "$OUT.tmp"
 chmod 600 "$OUT"
+
+# Every reference must resolve, or kubectl silently falls back to a password prompt.
+if grep -q ': default$' "$OUT" || [[ "$(grep -c 'healer-rke2$' "$OUT")" -lt 6 ]]; then
+  echo "kubeconfig rename incomplete; inspect $OUT" >&2
+  exit 1
+fi
 
 cat <<MSG
 Kubeconfig written to $OUT
