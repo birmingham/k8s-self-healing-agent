@@ -201,7 +201,9 @@ If clusters are running when you rotate, also re-run `scripts/deploy-agent.sh`
 and `kubectl -n healer-system rollout restart deploy/healer` on each, since
 pods read Secret values only at startup.
 
-**Each session.** Bring up the clusters and deploy the agent. The `cp` lines
+**Each session.** Bring up the clusters and deploy the agent. Every script
+takes the project ID as its first argument; in a new terminal, set it first
+with `export PROJECT=$(gcloud config get-value project)`. The `cp` lines
 are only needed the first time; your `terraform.tfvars` and `backend.hcl` are
 gitignored and stay on disk.
 
@@ -212,6 +214,8 @@ cp terraform.tfvars.example terraform.tfvars   # first time: set project_id and 
 cp backend.hcl.example backend.hcl             # first time: set your state bucket
 terraform init -backend-config=backend.hcl && terraform apply
 cd ../..
+# Run after terraform apply finishes. Until the cluster is RUNNING its API
+# refuses connections; the script waits for RUNNING if you start it early.
 scripts/connect-gke.sh "$PROJECT"
 
 # 4. RKE2 (bootstrap takes ~5 minutes after apply).
