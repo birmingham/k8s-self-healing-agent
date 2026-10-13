@@ -232,6 +232,33 @@ scripts/deploy-agent.sh healer-gke  "$PROJECT"
 scripts/deploy-agent.sh healer-rke2 "$PROJECT"
 ```
 
+**What a healthy connection looks like.** `connect-gke.sh` ends by running
+`kubectl --context healer-gke get ns`. Before the agent is deployed, expect only
+the system namespaces, all `Active`:
+
+```
+NAME                                STATUS   AGE
+default                             Active   5m
+gke-gmp-system                      Active   2m
+gke-managed-cim                     Active   3m
+gke-managed-system                  Active   3m
+gmp-public                          Active   2m
+kube-node-lease                     Active   5m
+kube-public                         Active   5m
+kube-system                         Active   5m
+```
+
+The exact `gke-*` / `gmp-*` set varies with the GKE version (you may see
+`gke-managed-filestorecsi`, `gke-managed-volumepopulator`, and others); any
+list like this means you're connected. `kubectl get nodes` may show no nodes at
+all: Autopilot adds nodes only when pods need them. After `deploy-agent.sh`,
+`healer-system` and `healer-demo` appear in the list.
+
+For RKE2, `kubectl --context healer-rke2 get nodes` should show three `Ready`
+nodes: `healer-rke2-server-0` with roles `control-plane,etcd,master`, and two
+agents with role `<none>`. Nodes report `NotReady` for the first minute or two
+while Canal starts.
+
 **When things change:**
 
 | Change | What to do |
