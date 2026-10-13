@@ -11,6 +11,19 @@ action from a fixed menu and explains why. Everything that touches the cluster
 (whether an action is allowed, which pods, which revision, how much memory,
 whether a human must approve) is decided by plain, unit-tested Python.
 
+## Contents
+
+- [How it works](#how-it-works)
+- [Guardrails](#guardrails)
+- [Failure scenarios](#failure-scenarios)
+- [Repository layout](#repository-layout)
+- [Quickstart](#quickstart)
+  - [Claude API key (platform.claude.com)](#claude-api-key-platformclaudecom)
+  - [Steps](#steps)
+- [Security posture](#security-posture)
+- [Cost and teardown](#cost-and-teardown)
+- [Limits and next steps](#limits-and-next-steps)
+
 ## How it works
 
 ```mermaid
