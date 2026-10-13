@@ -181,8 +181,25 @@ Manager), so they survive `terraform destroy`. Skip them on later sessions.
 git tag v0.1.2 && git push origin v0.1.2      # only if that tag isn't published yet
 
 # 2. Store the workspace-scoped Claude API key in Secret Manager (prompted, not echoed).
+#    If you rotate the key in the Claude Console (platform.claude.com), run this
+#    again with the new key: Secret Manager keeps the old one until you do.
 scripts/store-api-key.sh "$PROJECT"
+
+#    Verify the stored key (and workspace, billing, model): expect "text":"OK".
+gcloud secrets versions access latest --secret=anthropic-api-key --project "$PROJECT" \
+  | sed 's/^/x-api-key: /' \
+  | curl -s https://api.anthropic.com/v1/messages -H @- \
+      -H "anthropic-version: 2023-06-01" -H "content-type: application/json" \
+      -d '{"model":"claude-sonnet-5-5","max_tokens":20,"messages":[{"role":"user","content":"Reply with OK"}]}'
+
+#    After a rotation, disable the revoked key's old version:
+gcloud secrets versions list anthropic-api-key --project "$PROJECT"
+gcloud secrets versions disable <OLD_VERSION> --secret=anthropic-api-key --project "$PROJECT"
 ```
+
+If clusters are running when you rotate, also re-run `scripts/deploy-agent.sh`
+and `kubectl -n healer-system rollout restart deploy/healer` on each, since
+pods read Secret values only at startup.
 
 **Each session.** Bring up the clusters and deploy the agent. The `cp` lines
 are only needed the first time; your `terraform.tfvars` and `backend.hcl` are
