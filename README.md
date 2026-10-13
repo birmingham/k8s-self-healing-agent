@@ -171,36 +171,57 @@ values only at startup.
 
 ### Steps
 
+**One-time setup.** These results live outside the clusters (GHCR and Secret
+Manager), so they survive `terraform destroy`. Skip them on later sessions.
+
 ```bash
-# 1. Build and push the agent image (or push a v* tag and let CI do it).
-#    Then make the GHCR package public once so the clusters can pull it.
-echo "$GITHUB_PAT" | docker login ghcr.io -u birmingham --password-stdin
-scripts/build-push.sh 0.1.0
+# 1. Agent image. CI publishes it when you push a v* tag; the version deployed
+#    is the newTag in deploy/base/kustomization.yaml. Make the GHCR package
+#    public once (Package settings -> Change visibility) so clusters can pull it.
+git tag v0.1.2 && git push origin v0.1.2      # only if that tag isn't published yet
 
-# 2. Store the workspace-scoped API key in Secret Manager (prompted, not echoed).
+# 2. Store the workspace-scoped Claude API key in Secret Manager (prompted, not echoed).
 scripts/store-api-key.sh "$PROJECT"
+```
 
-# 3. GKE Autopilot.
+**Each session.** Bring up the clusters and deploy the agent. The `cp` lines
+are only needed the first time; your `terraform.tfvars` and `backend.hcl` are
+gitignored and stay on disk.
+
+```bash
+# 3. GKE Autopilot (~10 minutes).
 cd infra/gke-autopilot
-cp terraform.tfvars.example terraform.tfvars   # set project_id and your IP/32
-cp backend.hcl.example backend.hcl             # set your state bucket
+cp terraform.tfvars.example terraform.tfvars   # first time: set project_id and your IP/32
+cp backend.hcl.example backend.hcl             # first time: set your state bucket
 terraform init -backend-config=backend.hcl && terraform apply
 cd ../..
 scripts/connect-gke.sh "$PROJECT"
 
 # 4. RKE2 (bootstrap takes ~5 minutes after apply).
 cd infra/rke2
-cp terraform.tfvars.example terraform.tfvars
-cp backend.hcl.example backend.hcl
+cp terraform.tfvars.example terraform.tfvars   # first time
+cp backend.hcl.example backend.hcl             # first time
 terraform init -backend-config=backend.hcl && terraform apply
 cd ../..
-scripts/connect-rke2.sh "$PROJECT"            # leave running; it holds the IAP tunnel
-export KUBECONFIG="$HOME/.kube/config:$HOME/.kube/healer-rke2-kubeconfig.yaml"
+scripts/connect-rke2.sh "$PROJECT"             # leave running; it holds the IAP tunnel
 
-# 5. Deploy the agent to both clusters.
+# 5. In a new terminal: deploy the agent to both clusters.
+export KUBECONFIG="$HOME/.kube/config:$HOME/.kube/healer-rke2-kubeconfig.yaml"
 scripts/deploy-agent.sh healer-gke  "$PROJECT"
 scripts/deploy-agent.sh healer-rke2 "$PROJECT"
 ```
+
+**When things change:**
+
+| Change | What to do |
+|---|---|
+| Agent code | Bump `__version__` in `agent/healer/__init__.py` and `newTag` in `deploy/base/kustomization.yaml`, push a new `v*` tag, wait for CI, re-run `deploy-agent.sh`. Never re-push an existing tag: nodes cache images by tag. |
+| API key rotated | `scripts/store-api-key.sh`, then `deploy-agent.sh` and `kubectl -n healer-system rollout restart deploy/healer` on any running cluster. |
+| Manifests only | Re-run `deploy-agent.sh`. |
+
+For local builds instead of CI (`scripts/build-push.sh <version>`), log in to
+GHCR first with a classic token that has `write:packages`, and use a new version
+number rather than an existing one.
 
 Optional Slack notifications: add a `SLACK_WEBHOOK_URL` key to the
 `healer-secrets` Secret in `healer-system`.
