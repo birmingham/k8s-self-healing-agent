@@ -17,7 +17,7 @@ whether a human must approve) is decided by plain, unit-tested Python.
 flowchart LR
     A[Detect<br/>deterministic signatures] --> B[Collect<br/>spec, rollout history,<br/>status, events, logs]
     B --> C[Redact<br/>secrets, env values]
-    C --> D[Diagnose<br/>Claude, forced tool call]
+    C --> D[Diagnose<br/>Claude, tool call]
     D --> E{Policy engine}
     E -->|allowed + auto| F[Execute<br/>guarded JSON Patch]
     E -->|needs approval| G[Propose<br/>annotation on workload]
@@ -35,10 +35,12 @@ flowchart LR
    container logs.
 3. **Redact.** Env var *values* never leave the cluster (names and sources
    only). Logs are scrubbed for passwords, tokens, connection strings, and keys.
-4. **Diagnose.** Claude must answer through a single tool,
+4. **Diagnose.** Claude answers through a single tool,
    `propose_remediation`, whose `action` field is an enum:
    `restart_pod`, `rollback_deployment`, `increase_memory_limit`, `escalate`.
    It returns a root cause, cited evidence, a confidence, and an on-call summary.
+   A plain-text reply, an out-of-enum value, or an API error is treated as a
+   failed diagnosis and escalated.
 5. **Decide.** The policy engine (`agent/healer/policy.py`) applies the guardrails below.
 6. **Act.** Mutations are JSON Patches with `test` operations, so if a human or
    a GitOps controller changed the Deployment while the agent was thinking,

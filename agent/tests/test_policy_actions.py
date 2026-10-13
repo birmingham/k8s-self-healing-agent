@@ -169,3 +169,10 @@ def test_state_ops_apply_cleanly():
     ops = state._ops_for(dep, {state.ANN_PROPOSAL: json.dumps({"id": "x"})})
     out = jsonpatch.apply_patch(API.sanitize_for_serialization(dep), ops)
     assert json.loads(out["metadata"]["annotations"]["healer.birmingham.github.io/proposal"]) == {"id": "x"}
+
+
+def test_fallback_escalation_reason():
+    from healer.detector import Incident as I
+    fb = Diagnosis.unavailable(I("ns", "web", "CrashLoopBackOff"), RuntimeError("400"))
+    d = evaluate(policy(), inc(), fb, ctx(), [], API)
+    assert d.outcome == "escalate" and "unavailable" in d.reason

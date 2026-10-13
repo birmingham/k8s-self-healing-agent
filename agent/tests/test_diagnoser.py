@@ -13,7 +13,7 @@ def client_returning(blocks):
     return c
 
 
-def test_forces_tool_and_parses():
+def test_calls_tool_and_parses():
     block = SimpleNamespace(type="tool_use", name="propose_remediation", input={
         "root_cause": "bad tag", "evidence": ["ErrImagePull"], "action": "rollback_deployment",
         "confidence": 0.93, "summary": "roll back"})
@@ -21,7 +21,8 @@ def test_forces_tool_and_parses():
     d = Diagnoser("claude-sonnet-5-5", client=c).diagnose(INC, {"k": "v"})
     assert d.action == "rollback_deployment" and d.confidence == 0.93
     kwargs = c.messages.create.call_args.kwargs
-    assert kwargs["tool_choice"] == {"type": "tool", "name": "propose_remediation"}
+    assert kwargs["tool_choice"] == {"type": "auto"}
+    assert kwargs["tools"][0]["name"] == "propose_remediation"
     assert "<telemetry>" in kwargs["messages"][0]["content"]
 
 
@@ -48,3 +49,9 @@ def test_api_error_message_is_kept():
         "Error code: 400 - {'error': {'message': 'Your credit balance is too low'}}")
     d = Diagnoser("m", client=c).diagnose(INC, {})
     assert "credit balance is too low" in d.root_cause and d.action == "escalate"
+
+
+def test_text_reply_without_tool_escalates():
+    c = client_returning([SimpleNamespace(type="text", text="I think you should roll back.")])
+    d = Diagnoser("m", client=c).diagnose(INC, {})
+    assert d.action == "escalate" and d.fallback

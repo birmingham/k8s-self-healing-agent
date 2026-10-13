@@ -94,6 +94,8 @@ PARAMS = {
 def evaluate(policy, incident, diagnosis, ctx, recent: list[dict], api_client) -> Decision:
     action = diagnosis.action
     if action == "escalate":
+        if getattr(diagnosis, "fallback", False):
+            return _escalate("LLM diagnosis unavailable; no automated action taken")
         return _escalate("model recommended escalation")
 
     ap = policy.action(action)
