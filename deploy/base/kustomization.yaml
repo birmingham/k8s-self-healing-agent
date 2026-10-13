@@ -11,4 +11,4 @@ configMapGenerator:
       - policy.yaml
 images:
   - name: ghcr.io/birmingham/k8s-self-healing-agent
-    newTag: "0.1.0"
+    newTag: "0.1.1"

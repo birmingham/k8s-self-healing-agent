@@ -40,3 +40,11 @@ def test_api_failure_escalates():
     c.messages.create.side_effect = TimeoutError("boom")
     d = Diagnoser("m", client=c).diagnose(INC, {})
     assert d.action == "escalate" and d.fallback
+
+
+def test_api_error_message_is_kept():
+    c = MagicMock()
+    c.messages.create.side_effect = RuntimeError(
+        "Error code: 400 - {'error': {'message': 'Your credit balance is too low'}}")
+    d = Diagnoser("m", client=c).diagnose(INC, {})
+    assert "credit balance is too low" in d.root_cause and d.action == "escalate"

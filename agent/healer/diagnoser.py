@@ -12,6 +12,7 @@ import os
 from dataclasses import dataclass, field
 
 from .config import ACTIONS
+from .redact import redact
 
 SYSTEM_PROMPT = """You are the diagnosis component of a Kubernetes self-healing agent.
 
@@ -113,8 +114,14 @@ class Diagnosis:
 
     @classmethod
     def unavailable(cls, incident, error: Exception) -> Diagnosis:
+        # Keep the API's own explanation (e.g. "credit balance is too low",
+        # "model not found"); redacted in case it echoes request content.
+        detail = redact(str(error)).replace("\n", " ")[:400]
         return cls(
-            root_cause=f"LLM diagnosis unavailable ({type(error).__name__}); detected signature {incident.signature}.",
+            root_cause=(
+                f"LLM diagnosis unavailable ({type(error).__name__}: {detail}); "
+                f"detected signature {incident.signature}."
+            ),
             action="escalate",
             confidence=0.0,
             summary=f"{incident.key}: automated diagnosis failed, so no action was taken. Investigate manually.",

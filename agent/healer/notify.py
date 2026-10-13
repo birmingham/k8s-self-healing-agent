@@ -15,7 +15,10 @@ log = logging.getLogger("healer")
 def setup_logging():
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(logging.Formatter("%(message)s"))
-    logging.basicConfig(level=logging.INFO, handlers=[handler])
+    # Root at WARNING so library chatter (httpx request lines, kubernetes client)
+    # stays out of the audit stream; only the agent's own JSON events are INFO.
+    logging.basicConfig(level=logging.WARNING, handlers=[handler])
+    log.setLevel(logging.INFO)
 
 
 def emit(event: str, severity: str = "INFO", **fields):
