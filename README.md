@@ -117,7 +117,46 @@ Terraform is split per concern (`provider.tf`, `variables.tf`, `apis.tf`,
 ## Quickstart
 
 Prerequisites: `gcloud` (with `gke-gcloud-auth-plugin`), Terraform ≥ 1.6,
-`kubectl`, Docker with buildx, `jq`, a GCS bucket for state, and an Anthropic API key.
+`kubectl`, Docker with buildx, `jq`, a GCS bucket for state, and a Claude API key from
+[platform.claude.com](https://platform.claude.com) (see below).
+
+### Claude API key (platform.claude.com)
+
+The agent calls the Claude API, which needs its own key from the Claude
+Console at [platform.claude.com](https://platform.claude.com). A claude.ai
+subscription does not include API access; the Console has separate billing.
+
+1. Sign in to the Console (the same login as claude.ai works).
+2. Under **Billing**, add credits. Set a monthly spend limit and an alert while
+   you're there. Each incident costs one API call, and cooldowns stop repeats,
+   so a few dollars covers many scenario runs.
+3. Create a **workspace** for this project (e.g. `k8s-self-healing-agent`), then
+   create the API key **inside that workspace**. Some accounts reject keys that
+   aren't scoped to a workspace with a 400: *"This API key is not scoped to a
+   workspace..."*. A dedicated workspace also gives the agent its own spend cap.
+4. Store the key with `scripts/store-api-key.sh` (step 2 below). It prompts
+   without echoing, so the key never lands in shell history or a file.
+
+To confirm the key and model work before deploying (the key goes through a
+pipe, never into argv):
+
+```bash
+gcloud secrets versions access latest --secret=anthropic-api-key --project "$PROJECT" \
+  | sed 's/^/x-api-key: /' \
+  | curl -s https://api.anthropic.com/v1/messages -H @- \
+      -H "anthropic-version: 2023-06-01" -H "content-type: application/json" \
+      -d '{"model":"claude-sonnet-5-5","max_tokens":20,"messages":[{"role":"user","content":"Reply with OK"}]}'
+```
+
+A JSON reply containing `"text":"OK"` means you're ready. If the agent ever
+can't reach the API, it escalates instead of acting, and the API's own error
+message appears in the `diagnosis` log line.
+
+After rotating the key, re-run `scripts/deploy-agent.sh`, then
+`kubectl -n healer-system rollout restart deploy/healer`. Pods read Secret
+values only at startup.
+
+### Steps
 
 ```bash
 # 1. Build and push the agent image (or push a v* tag and let CI do it).
@@ -125,7 +164,7 @@ Prerequisites: `gcloud` (with `gke-gcloud-auth-plugin`), Terraform ≥ 1.6,
 echo "$GITHUB_PAT" | docker login ghcr.io -u birmingham --password-stdin
 scripts/build-push.sh 0.1.0
 
-# 2. Store the API key in Secret Manager (prompted, not echoed).
+# 2. Store the workspace-scoped API key in Secret Manager (prompted, not echoed).
 scripts/store-api-key.sh "$PROJECT"
 
 # 3. GKE Autopilot.
