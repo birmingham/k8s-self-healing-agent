@@ -255,9 +255,18 @@ all: Autopilot adds nodes only when pods need them. After `deploy-agent.sh`,
 `healer-system` and `healer-demo` appear in the list.
 
 For RKE2, `kubectl --context healer-rke2 get nodes` should show three `Ready`
-nodes: `healer-rke2-server-0` with roles `control-plane,etcd,master`, and two
-agents with role `<none>`. Nodes report `NotReady` for the first minute or two
-while Canal starts.
+nodes, named by their internal hostnames:
+
+```
+NAME                                                     STATUS   ROLES                AGE   VERSION
+healer-rke2-agent-0.us-west1-a.c.<project>.internal      Ready    <none>               22m   v1.xx.x+rke2r1
+healer-rke2-agent-1.us-west1-a.c.<project>.internal      Ready    <none>               22m   v1.xx.x+rke2r1
+healer-rke2-server-0.us-west1-a.c.<project>.internal     Ready    control-plane,etcd   22m   v1.xx.x+rke2r1
+```
+
+Nodes report `NotReady` for the first minute or two while Canal starts. The
+version is whatever the RKE2 `stable` channel ships at apply time; set
+`rke2_version` in `terraform.tfvars` to pin it.
 
 **When things change:**
 
